@@ -100,6 +100,7 @@ func (fh *FlexiHash) AddTarget(target string, weight float64) error {
 		position := fh.hasher.Hash(target + strconv.Itoa(i))
 		fh.positionToTarget[position] = target
 		fh.targetToPositions[target] = append(fh.targetToPositions[target], position)
+		fh.positionCount++
 	}
 
 	fh.positionToTargetSorted = false
