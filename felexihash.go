@@ -187,52 +187,49 @@ func (fh *FlexiHash) LookupList(resource string, requestedCount int) ([]string, 
 	// Hash resource to a position
 	resourcePosition := fh.hasher.Hash(resource)
 
-	var results []string
-
 	fh.sortPositionTargets()
 	positions := fh.sortedPositions
 
 	// Binary search for the first position greater than resource position
 	low := 0
 	high := fh.positionCount - 1
-	notfound := false
+	probe := 0
 
-	for high >= low || notfound {
-		probe := (high + low) / 2
-
-		if !notfound && positions[probe] <= resourcePosition {
-			low = probe + 1
-		} else if probe == 0 || resourcePosition > positions[probe-1] || notfound {
-			if notfound {
-				// Binary search failed to find any position greater than resource position
-				// In this case, wrap around to first position
-				probe = 0
+	// If resourcePosition is greater than the largest position, we wrap around to 0
+	if resourcePosition > positions[high] {
+		probe = 0
+	} else {
+		// Standard binary search
+		for low <= high {
+			mid := (low + high) / 2
+			if positions[mid] < resourcePosition {
+				low = mid + 1
+			} else {
+				probe = mid
+				high = mid - 1
 			}
-
-			results = append(results, fh.positionToTarget[positions[probe]])
-
-			if requestedCount > 1 {
-				for i := requestedCount - 1; i > 0; i-- {
-					probe++
-					if probe > fh.positionCount-1 {
-						probe = 0 // cycle
-					}
-					results = append(results, fh.positionToTarget[positions[probe]])
-				}
-			}
-			break
-		} else {
-			high = probe - 1
 		}
 	}
 
-	// Return unique targets
+	var uniqueResults []string
 	seen := make(map[string]bool)
-	uniqueResults := []string{}
-	for _, target := range results {
+
+	// Collect targets starting from probe
+	for len(uniqueResults) < requestedCount {
+		target := fh.positionToTarget[positions[probe]]
 		if !seen[target] {
 			uniqueResults = append(uniqueResults, target)
 			seen[target] = true
+		}
+
+		probe++
+		if probe >= fh.positionCount {
+			probe = 0
+		}
+
+		// If we've collected all available targets, stop
+		if len(uniqueResults) >= fh.targetCount {
+			break
 		}
 	}
 
